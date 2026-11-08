@@ -8390,6 +8390,24 @@ export default {
       failed: 'Could not merge the archives.',
     },
   },
+  archiveMergePair: {
+    button: 'Merge',
+    tooltip: 'Merge a print without a file into the archive of its file',
+    notAPair: 'Pick one print without a file (e.g. sent from Bambu Cloud) and one archive holding its 3MF.',
+    title: 'Merge print into its file',
+    confirm: '"{{print}}" has no file. Its print, photos and video move into "{{file}}", which stays; "{{print}}" disappears from the archives. This cannot be undone from here.',
+    confirmCta: 'Yes, merge',
+    toast: {
+      merged: 'Merged the print into its file.',
+      failed: 'Could not merge the archives.',
+    },
+    skipped: {
+      busy: 'In use: printing, queued or just printed. Try again later.',
+      conflicting_files: 'The archives carry different source or design files, or videos. Keep one by hand first.',
+      failed: 'The merge failed.',
+      not_a_pair: 'Pick one print without a file and one archive with a file.',
+    },
+  },
   archivePurge: {
     headerButton: 'Purge old',
     headerTooltip: 'Bulk-delete old archives',

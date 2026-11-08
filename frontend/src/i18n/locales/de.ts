@@ -8337,6 +8337,24 @@ export default {
       failed: 'Die Archive konnten nicht zusammengeführt werden.',
     },
   },
+  archiveMergePair: {
+    button: 'Zusammenführen',
+    tooltip: 'Einen Druck ohne Datei mit dem Archiv seiner Datei zusammenführen',
+    notAPair: 'Wähle einen Druck ohne Datei (z. B. aus Bambu Cloud gesendet) und ein Archiv mit seiner 3MF.',
+    title: 'Druck mit seiner Datei zusammenführen',
+    confirm: '„{{print}}“ hat keine Datei. Sein Druck, seine Fotos und sein Video gehen in „{{file}}“ über, das bleibt; „{{print}}“ verschwindet aus den Archiven. Dies kann hier nicht rückgängig gemacht werden.',
+    confirmCta: 'Ja, zusammenführen',
+    toast: {
+      merged: 'Der Druck wurde mit seiner Datei zusammengeführt.',
+      failed: 'Die Archive konnten nicht zusammengeführt werden.',
+    },
+    skipped: {
+      busy: 'In Benutzung: druckt, in der Warteschlange oder gerade gedruckt. Später erneut versuchen.',
+      conflicting_files: 'Die Archive enthalten unterschiedliche Quell- oder Designdateien oder Videos. Behalte zuerst eine von Hand.',
+      failed: 'Das Zusammenführen ist fehlgeschlagen.',
+      not_a_pair: 'Wähle einen Druck ohne Datei und ein Archiv mit Datei.',
+    },
+  },
   archivePurge: {
     headerButton: 'Alte löschen',
     headerTooltip: 'Alte Archive in einem Rutsch löschen',

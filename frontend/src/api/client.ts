@@ -5870,6 +5870,14 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ survivor_ids: survivorIds }),
     }),
+  /** Merge a print with no file (a cloud print) into the archive of its
+   *  file, uploaded since: the one with the file stays. 409 `{reason}` when
+   *  they are not such a pair or one of them is at work. */
+  mergeArchivePair: (archiveIds: [number, number]) =>
+    request<{ survivor_id: number; merged_id: number }>('/archives/merge-pair', {
+      method: 'POST',
+      body: JSON.stringify({ archive_ids: archiveIds }),
+    }),
   getArchivePurgeSettings: () =>
     request<ArchivePurgeSettings>('/archives/purge/settings'),
   updateArchivePurgeSettings: (body: ArchivePurgeSettings) =>

@@ -853,6 +853,32 @@ async def merge_archives(
     return {"merged": merged, "skipped": skipped}
 
 
+class ArchivePairMergeRequest(BaseModel):
+    archive_ids: list[int] = Field(min_length=2, max_length=2)
+
+
+@router.post("/merge-pair")
+async def merge_archive_pair(
+    body: ArchivePairMergeRequest,
+    db: AsyncSession = Depends(get_db, scope="function"),
+    _: User | None = RequirePermissionIfAuthEnabled(Permission.ARCHIVES_UPDATE_ALL, Permission.ARCHIVES_DELETE_ALL),
+    printer_scope: PrinterScope = RequestPrinterScope,
+):
+    """Merge two archives the user picked: one holding a file and one without
+    (a print whose 3MF never reached Bambuddy, e.g. sent from Bambu Cloud).
+    The one with the file stays and takes the other's runs, photos, video and
+    references. 409 with the reason when they are not such a pair or one of
+    them is at work."""
+    from backend.app.core.websocket import ws_manager
+    from backend.app.services.archive_merge import merge_pair, merge_scope_clauses
+
+    survivor_id, merged_id, reason = await merge_pair(db, body.archive_ids, merge_scope_clauses(printer_scope))
+    if reason is not None:
+        raise HTTPException(409, detail={"reason": reason})
+    await ws_manager.send_archive_updated({"id": survivor_id})
+    return {"survivor_id": survivor_id, "merged_id": merged_id}
+
+
 @router.get("/last-per-printer", response_model=list[ArchiveResponse])
 async def list_last_archive_per_printer(
     db: AsyncSession = Depends(get_db, scope="function"),

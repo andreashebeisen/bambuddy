@@ -7779,6 +7779,24 @@ export default {
       failed: '아카이브를 병합할 수 없습니다.',
     },
   },
+  archiveMergePair: {
+    button: '병합',
+    tooltip: '파일이 없는 출력을 해당 파일의 아카이브에 병합합니다',
+    notAPair: '파일이 없는 출력(예: Bambu Cloud에서 전송)과 해당 3MF가 있는 아카이브를 하나씩 선택하세요.',
+    title: '출력을 파일에 병합',
+    confirm: '"{{print}}"에는 파일이 없습니다. 출력, 사진, 동영상이 "{{file}}"(으)로 옮겨지고 이 아카이브가 유지됩니다. "{{print}}"은(는) 아카이브에서 사라집니다. 여기서는 되돌릴 수 없습니다.',
+    confirmCta: '예, 병합',
+    toast: {
+      merged: '출력을 파일에 병합했습니다.',
+      failed: '아카이브를 병합할 수 없습니다.',
+    },
+    skipped: {
+      busy: '사용 중: 출력 중, 대기열에 있음 또는 방금 출력됨. 나중에 다시 시도하세요.',
+      conflicting_files: '아카이브에 서로 다른 소스/디자인 파일 또는 동영상이 있습니다. 먼저 하나만 직접 남기세요.',
+      failed: '병합에 실패했습니다.',
+      not_a_pair: '파일이 없는 출력과 파일이 있는 아카이브를 하나씩 선택하세요.',
+    },
+  },
   archivePurge: {
     headerButton: '오래된 것 삭제',
     headerTooltip: '오래된 아카이브 일괄 삭제',

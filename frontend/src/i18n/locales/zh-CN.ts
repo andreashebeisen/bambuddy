@@ -8320,6 +8320,24 @@ export default {
       failed: '无法合并归档。',
     },
   },
+  archiveMergePair: {
+    button: '合并',
+    tooltip: '将没有文件的打印合并到其文件的存档中',
+    notAPair: '请选择一个没有文件的打印（例如从 Bambu Cloud 发送）和一个包含其 3MF 的存档。',
+    title: '将打印合并到其文件',
+    confirm: '“{{print}}”没有文件。它的打印记录、照片和视频将移入“{{file}}”并保留该存档；“{{print}}”将从存档中消失。此操作无法在此撤销。',
+    confirmCta: '是，合并',
+    toast: {
+      merged: '已将打印合并到其文件。',
+      failed: '无法合并存档。',
+    },
+    skipped: {
+      busy: '使用中：正在打印、已排队或刚打印完。请稍后再试。',
+      conflicting_files: '存档包含不同的源文件、设计文件或视频。请先手动保留一个。',
+      failed: '合并失败。',
+      not_a_pair: '请选择一个没有文件的打印和一个有文件的存档。',
+    },
+  },
   archivePurge: {
     headerButton: '清除旧条目',
     headerTooltip: '批量删除旧归档',

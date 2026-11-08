@@ -8322,6 +8322,24 @@ export default {
       failed: 'Impossibile unire gli archivi.',
     },
   },
+  archiveMergePair: {
+    button: 'Unisci',
+    tooltip: 'Unisci una stampa senza file all’archivio del suo file',
+    notAPair: 'Scegli una stampa senza file (es. inviata da Bambu Cloud) e un archivio che contiene il suo 3MF.',
+    title: 'Unisci la stampa al suo file',
+    confirm: '"{{print}}" non ha un file. La stampa, le foto e il video passano a "{{file}}", che resta; "{{print}}" scompare dagli archivi. Non è possibile annullare da qui.',
+    confirmCta: 'Sì, unisci',
+    toast: {
+      merged: 'La stampa è stata unita al suo file.',
+      failed: 'Impossibile unire gli archivi.',
+    },
+    skipped: {
+      busy: 'In uso: in stampa, in coda o appena stampato. Riprova più tardi.',
+      conflicting_files: 'Gli archivi contengono file sorgente o di progetto, o video, diversi. Tienine uno a mano prima.',
+      failed: 'L’unione non è riuscita.',
+      not_a_pair: 'Scegli una stampa senza file e un archivio con file.',
+    },
+  },
   archivePurge: {
     headerButton: 'Elimina vecchi',
     headerTooltip: 'Eliminazione massiva vecchi archivi',

@@ -8386,6 +8386,24 @@ errors: {
       failed: 'Kunde inte slå ihop arkiven.',
     },
   },
+  archiveMergePair: {
+    button: 'Slå ihop',
+    tooltip: 'Slå ihop en utskrift utan fil med arkivet för dess fil',
+    notAPair: 'Välj en utskrift utan fil (t.ex. skickad från Bambu Cloud) och ett arkiv med dess 3MF.',
+    title: 'Slå ihop utskriften med dess fil',
+    confirm: '"{{print}}" har ingen fil. Dess utskrift, foton och video flyttas till "{{file}}", som blir kvar; "{{print}}" försvinner från arkiven. Det går inte att ångra härifrån.',
+    confirmCta: 'Ja, slå ihop',
+    toast: {
+      merged: 'Utskriften slogs ihop med sin fil.',
+      failed: 'Kunde inte slå ihop arkiven.',
+    },
+    skipped: {
+      busy: 'Används: skriver ut, i kö eller nyss utskriven. Försök igen senare.',
+      conflicting_files: 'Arkiven har olika käll- eller designfiler, eller videor. Behåll en för hand först.',
+      failed: 'Sammanslagningen misslyckades.',
+      not_a_pair: 'Välj en utskrift utan fil och ett arkiv med fil.',
+    },
+  },
   archivePurge: {
     headerButton: 'Rensa gamla',
     headerTooltip: 'Massradera gamla arkiv',

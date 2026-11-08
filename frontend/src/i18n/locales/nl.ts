@@ -8388,6 +8388,24 @@ export default {
       failed: 'Kon de archieven niet samenvoegen.',
     },
   },
+  archiveMergePair: {
+    button: 'Samenvoegen',
+    tooltip: 'Een print zonder bestand samenvoegen met het archief van zijn bestand',
+    notAPair: 'Kies één print zonder bestand (bijv. verzonden vanuit Bambu Cloud) en één archief met zijn 3MF.',
+    title: 'Print samenvoegen met zijn bestand',
+    confirm: '"{{print}}" heeft geen bestand. De print, foto’s en video gaan naar "{{file}}", dat blijft; "{{print}}" verdwijnt uit de archieven. Dit kan hier niet ongedaan worden gemaakt.',
+    confirmCta: 'Ja, samenvoegen',
+    toast: {
+      merged: 'De print is samengevoegd met zijn bestand.',
+      failed: 'Kon de archieven niet samenvoegen.',
+    },
+    skipped: {
+      busy: 'In gebruik: aan het printen, in de wachtrij of net geprint. Probeer het later opnieuw.',
+      conflicting_files: 'De archieven bevatten verschillende bron- of ontwerpbestanden, of video’s. Houd er eerst handmatig één over.',
+      failed: 'Samenvoegen is mislukt.',
+      not_a_pair: 'Kies één print zonder bestand en één archief met bestand.',
+    },
+  },
   archivePurge: {
     headerButton: 'Oude opschonen',
     headerTooltip: 'Oude archieven in bulk verwijderen',

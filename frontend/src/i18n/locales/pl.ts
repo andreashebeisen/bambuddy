@@ -8390,6 +8390,24 @@ export default {
       failed: 'Nie można scalić archiwów.',
     },
   },
+  archiveMergePair: {
+    button: 'Scal',
+    tooltip: 'Scal wydruk bez pliku z archiwum jego pliku',
+    notAPair: 'Wybierz jeden wydruk bez pliku (np. wysłany z Bambu Cloud) i jedno archiwum z jego 3MF.',
+    title: 'Scal wydruk z jego plikiem',
+    confirm: '„{{print}}” nie ma pliku. Jego wydruk, zdjęcia i wideo trafią do „{{file}}”, które zostaje; „{{print}}” zniknie z archiwów. Tego nie można tu cofnąć.',
+    confirmCta: 'Tak, scal',
+    toast: {
+      merged: 'Scalono wydruk z jego plikiem.',
+      failed: 'Nie udało się scalić archiwów.',
+    },
+    skipped: {
+      busy: 'W użyciu: drukuje, w kolejce lub właśnie wydrukowane. Spróbuj później.',
+      conflicting_files: 'Archiwa zawierają różne pliki źródłowe lub projektowe albo wideo. Najpierw zostaw ręcznie jeden.',
+      failed: 'Scalanie nie powiodło się.',
+      not_a_pair: 'Wybierz jeden wydruk bez pliku i jedno archiwum z plikiem.',
+    },
+  },
   archivePurge: {
     headerButton: 'Wyczyść stare',
     headerTooltip: 'Usuń hurtowo stare archiwa',

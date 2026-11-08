@@ -512,12 +512,12 @@ async def test_a_failing_group_leaves_the_next_to_merge(db_session, files, dupes
     real = archive_merge._merge
     calls = []
 
-    async def fail_the_first(db, survivor_id, merged_ids, files_):
+    async def fail_the_first(db, survivor_id, merged_ids, files_, **kwargs):
         calls.append(survivor_id)
         if len(calls) == 1:
             await db.flush()
             raise RuntimeError("boom")
-        return await real(db, survivor_id, merged_ids, files_)
+        return await real(db, survivor_id, merged_ids, files_, **kwargs)
 
     with patch.object(archive_merge, "_merge", fail_the_first):
         merged, skipped = await archive_merge.merge(db_session, [dupes.x, first_id], [])

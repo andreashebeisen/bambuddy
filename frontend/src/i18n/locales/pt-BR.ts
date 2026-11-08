@@ -8322,6 +8322,24 @@ export default {
       failed: 'Não foi possível mesclar os arquivos.',
     },
   },
+  archiveMergePair: {
+    button: 'Mesclar',
+    tooltip: 'Mesclar uma impressão sem arquivo ao arquivo do seu 3MF',
+    notAPair: 'Escolha uma impressão sem arquivo (ex.: enviada pelo Bambu Cloud) e um arquivo que contenha o seu 3MF.',
+    title: 'Mesclar impressão ao seu arquivo',
+    confirm: '"{{print}}" não tem arquivo. A impressão, as fotos e o vídeo passam para "{{file}}", que permanece; "{{print}}" some dos arquivos. Isso não pode ser desfeito aqui.',
+    confirmCta: 'Sim, mesclar',
+    toast: {
+      merged: 'A impressão foi mesclada ao seu arquivo.',
+      failed: 'Não foi possível mesclar os arquivos.',
+    },
+    skipped: {
+      busy: 'Em uso: imprimindo, na fila ou recém-impresso. Tente novamente mais tarde.',
+      conflicting_files: 'Os arquivos têm arquivos de origem ou de design, ou vídeos, diferentes. Mantenha um manualmente primeiro.',
+      failed: 'A mesclagem falhou.',
+      not_a_pair: 'Escolha uma impressão sem arquivo e um arquivo com 3MF.',
+    },
+  },
   archivePurge: {
     headerButton: 'Limpar antigos',
     headerTooltip: 'Excluir arquivos antigos em massa',

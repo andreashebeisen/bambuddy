@@ -8345,6 +8345,24 @@ export default {
       failed: 'No se pudieron fusionar los archivos.',
     },
   },
+  archiveMergePair: {
+    button: 'Fusionar',
+    tooltip: 'Fusionar una impresión sin archivo con el archivo de su fichero',
+    notAPair: 'Elige una impresión sin archivo (p. ej. enviada desde Bambu Cloud) y un archivo que contenga su 3MF.',
+    title: 'Fusionar la impresión con su fichero',
+    confirm: '"{{print}}" no tiene fichero. Su impresión, fotos y vídeo pasan a "{{file}}", que se conserva; "{{print}}" desaparece de los archivos. No se puede deshacer desde aquí.',
+    confirmCta: 'Sí, fusionar',
+    toast: {
+      merged: 'La impresión se fusionó con su fichero.',
+      failed: 'No se pudieron fusionar los archivos.',
+    },
+    skipped: {
+      busy: 'En uso: imprimiendo, en cola o recién impreso. Inténtalo más tarde.',
+      conflicting_files: 'Los archivos contienen ficheros de origen o diseño, o vídeos, distintos. Conserva uno a mano primero.',
+      failed: 'La fusión falló.',
+      not_a_pair: 'Elige una impresión sin fichero y un archivo con fichero.',
+    },
+  },
   archivePurge: {
     headerButton: 'Purgar antiguos',
     headerTooltip: 'Eliminar en bloque los archivos antiguos',

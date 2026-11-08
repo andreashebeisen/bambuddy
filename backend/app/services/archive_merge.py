@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.config import settings
@@ -61,6 +61,9 @@ _FILE_EXTRAS = ("source_3mf_path", "f3d_path")
 SKIPPED_BUSY = "busy"
 SKIPPED_CONFLICTING_FILES = "conflicting_files"
 SKIPPED_FAILED = "failed"
+# A manual merge (``merge_pair``) of two archives that are not a file and a
+# print of it that has no file: both hold a file, or neither does.
+SKIPPED_NOT_A_PAIR = "not_a_pair"
 
 
 @dataclass
@@ -183,7 +186,12 @@ async def _busy(db: AsyncSession, archive_ids: list[int]) -> set[int]:
     queries = [
         select(PrintArchive.id).where(
             PrintArchive.id.in_(archive_ids),
-            or_(PrintArchive.status == "printing", PrintArchive.completed_at >= recent),
+            or_(
+                PrintArchive.status == "printing",
+                # An upload ("archived") is stamped completed when it lands,
+                # but was never printed: no timelapse or photo is on its way.
+                and_(PrintArchive.completed_at >= recent, PrintArchive.status != "archived"),
+            ),
         ),
         select(PrintLogEntry.archive_id)
         .where(
@@ -390,20 +398,23 @@ class _Plan:
     extras: dict[str, Path] = field(default_factory=dict)  # attribute -> source
 
 
-async def merge_group(db: AsyncSession, survivor_id: int, merged_ids: list[int]) -> str | None:
+async def merge_group(db: AsyncSession, survivor_id: int, merged_ids: list[int], *, manual: bool = False) -> str | None:
     """Merge ``merged_ids`` into ``survivor_id`` and commit. Returns why it
-    was left out instead (a ``SKIPPED_*``), or None once merged."""
+    was left out instead (a ``SKIPPED_*``), or None once merged. ``manual``:
+    the user picked them (``merge_pair``), so they need not hold one file."""
     with archive_work.merging([survivor_id, *merged_ids]) as marked:
         if not marked:
             return SKIPPED_BUSY
-        return await _merge_marked(db, survivor_id, merged_ids)
+        return await _merge_marked(db, survivor_id, merged_ids, manual=manual)
 
 
-async def _merge_marked(db: AsyncSession, survivor_id: int, merged_ids: list[int]) -> str | None:
+async def _merge_marked(
+    db: AsyncSession, survivor_id: int, merged_ids: list[int], *, manual: bool = False
+) -> str | None:
     """``_merge``, rolled back (with the files it placed) on any failure."""
     files = _Files()
     try:
-        reason, leftover = await _merge(db, survivor_id, merged_ids, files)
+        reason, leftover = await _merge(db, survivor_id, merged_ids, files, manual=manual)
         if reason is not None:
             # Left out before anything was written.
             return reason
@@ -418,7 +429,7 @@ async def _merge_marked(db: AsyncSession, survivor_id: int, merged_ids: list[int
 
 
 async def _merge(
-    db: AsyncSession, survivor_id: int, merged_ids: list[int], files: _Files
+    db: AsyncSession, survivor_id: int, merged_ids: list[int], files: _Files, *, manual: bool = False
 ) -> tuple[str | None, list[Path]]:
     """Merge and commit; returns why it was left out instead, or the folders
     to remove now that it has committed."""
@@ -437,7 +448,12 @@ async def _merge(
     if len(rows) != len(ids) or any(a.deleted_at is not None for a in rows.values()):
         return SKIPPED_BUSY, []
     survivor, merged = rows[survivor_id], [rows[i] for i in merged_ids]
-    if len({_key(a) for a in rows.values()}) != 1 or await _busy(db, ids):
+    if manual:
+        if not _is_pair(survivor, merged):
+            return SKIPPED_NOT_A_PAIR, []
+    elif len({_key(a) for a in rows.values()}) != 1:
+        return SKIPPED_BUSY, []
+    if await _busy(db, ids):
         return SKIPPED_BUSY, []
     if await asyncio.to_thread(_conflicting_extras, [survivor, *merged]):
         return SKIPPED_CONFLICTING_FILES, []
@@ -530,6 +546,9 @@ async def _merge(
                 heir.confirm_token = token
                 heir.confirm_requested = True
 
+    if manual:
+        _keep_print_data(survivor, merged, runs)
+
     survivor_photos = list(survivor.photos or [])
     for plan, (photos, videos, extras) in zip(plans, placed, strict=True):
         archive = plan.archive
@@ -608,6 +627,61 @@ async def _merge(
         archive.photos = None
     await db.commit()
     return None, leftover
+
+
+def _has_file(archive: PrintArchive) -> bool:
+    return bool(archive.file_path)
+
+
+def _is_pair(survivor: PrintArchive, merged: list[PrintArchive]) -> bool:
+    """Whether a manual merge may go ahead: the survivor holds a file and the
+    one merged into it does not (a print whose 3MF never reached Bambuddy,
+    its file uploaded since)."""
+    return len(merged) == 1 and _has_file(survivor) and not _has_file(merged[0])
+
+
+def _keep_print_data(survivor: PrintArchive, merged: list[PrintArchive], runs: dict[int, list[PrintLogEntry]]) -> None:
+    """The printer's report at the start of a file-less archive's print (its
+    AMS mapping and trays, ``extra_data._print_data``), kept on the survivor
+    by run: charging that print's spools later reads its slots from it."""
+    kept = dict((survivor.extra_data or {}).get("run_print_data") or {})
+    for archive in merged:
+        data = (archive.extra_data or {}).get("_print_data")
+        if not data:
+            continue
+        for run in runs[archive.id]:
+            if run.id is not None:
+                kept.setdefault(str(run.id), data)
+    if kept:
+        # A new dict: the JSON column does not see changes made in place.
+        survivor.extra_data = {**(survivor.extra_data or {}), "run_print_data": kept}
+
+
+async def merge_pair(
+    db: AsyncSession, archive_ids: list[int], visible: list
+) -> tuple[int | None, int | None, str | None]:
+    """Merge two archives the user picked: one holding a file, the other a
+    print of it whose 3MF never reached Bambuddy (a cloud print). The one with
+    the file stays, whichever is older. Returns the survivor, the merged one
+    and None, or why it was left out (a ``SKIPPED_*``)."""
+    if len(set(archive_ids)) != 2:
+        return None, None, SKIPPED_NOT_A_PAIR
+    rows = (
+        await db.scalars(
+            select(PrintArchive).where(PrintArchive.id.in_(archive_ids), PrintArchive.deleted_at.is_(None), *visible)
+        )
+    ).all()
+    with_file = [a for a in rows if _has_file(a)]
+    without = [a for a in rows if not _has_file(a)]
+    if len(rows) != 2 or len(with_file) != 1 or len(without) != 1:
+        return None, None, SKIPPED_NOT_A_PAIR
+    survivor_id, merged_id = with_file[0].id, without[0].id
+    try:
+        reason = await merge_group(db, survivor_id, [merged_id], manual=True)
+    except Exception:
+        logger.exception("Merging archive %s into archive %s failed", merged_id, survivor_id)
+        reason = SKIPPED_FAILED
+    return survivor_id, merged_id, reason
 
 
 async def _folder_in_use(db: AsyncSession, directory: Path, *, merged_ids: list[int]) -> bool:

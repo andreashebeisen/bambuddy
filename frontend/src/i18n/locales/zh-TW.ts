@@ -8320,6 +8320,24 @@ export default {
       failed: '無法合併封存。',
     },
   },
+  archiveMergePair: {
+    button: '合併',
+    tooltip: '將沒有檔案的列印合併到其檔案的封存中',
+    notAPair: '請選擇一個沒有檔案的列印（例如從 Bambu Cloud 傳送）和一個包含其 3MF 的封存。',
+    title: '將列印合併到其檔案',
+    confirm: '「{{print}}」沒有檔案。它的列印記錄、照片和影片將移入「{{file}}」並保留該封存；「{{print}}」將從封存中消失。此操作無法在此復原。',
+    confirmCta: '是，合併',
+    toast: {
+      merged: '已將列印合併到其檔案。',
+      failed: '無法合併封存。',
+    },
+    skipped: {
+      busy: '使用中：正在列印、已排入佇列或剛列印完。請稍後再試。',
+      conflicting_files: '封存包含不同的來源檔、設計檔或影片。請先手動保留一個。',
+      failed: '合併失敗。',
+      not_a_pair: '請選擇一個沒有檔案的列印和一個有檔案的封存。',
+    },
+  },
   archivePurge: {
     headerButton: '清除舊條目',
     headerTooltip: '批次刪除舊歸檔',

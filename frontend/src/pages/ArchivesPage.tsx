@@ -66,7 +66,7 @@ import {
   ThumbsUp,
   ThumbsDown,
 } from 'lucide-react';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { SliceModal } from '../components/SliceModal';
 import { ArchiveDetailModal } from '../components/ArchiveDetailModal';
 import { RunWithPipelineModal } from '../components/RunWithPipelineModal';
@@ -3164,6 +3164,7 @@ export function ArchivesPage() {
   const [showTagManagement, setShowTagManagement] = useState(false);
   const [showPurgeModal, setShowPurgeModal] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
+  const [showMergePairConfirm, setShowMergePairConfirm] = useState(false);
   // What the merge API asks for: it changes and removes whole archives.
   const canMergeDuplicates = hasPermission('archives:update_all') && hasPermission('archives:delete_all');
   // Offered while archives of one file exist more than once: after an
@@ -3567,6 +3568,39 @@ export function ArchivesPage() {
     },
     onError: () => {
       showToast(t('archives.toast.failedDeleteArchives'), 'error');
+    },
+  });
+
+  // Two archives picked to merge by hand: a print with no file (a cloud
+  // print) and the archive of its file, uploaded since. Null unless the
+  // selection is exactly such a pair.
+  const mergePair = useMemo(() => {
+    if (selectedIds.size !== 2 || !archives) return null;
+    const picked = archives.filter((a) => selectedIds.has(a.id));
+    const survivor = picked.find((a) => a.file_path);
+    const merged = picked.find((a) => !a.file_path);
+    return picked.length === 2 && survivor && merged ? { survivor, merged } : null;
+  }, [selectedIds, archives]);
+
+  const mergePairMutation = useMutation({
+    mutationFn: (ids: [number, number]) => api.mergeArchivePair(ids),
+    onSuccess: () => {
+      invalidateArchiveAndProjectViews(queryClient);
+      queryClient.invalidateQueries({ queryKey: ['archive-merge-count'] });
+      queryClient.invalidateQueries({ queryKey: ['print-log'] });
+      queryClient.invalidateQueries({ queryKey: ['archive-runs'] });
+      setSelectedIds(new Set());
+      setIsSelectionMode(false);
+      setShowMergePairConfirm(false);
+      showToast(t('archiveMergePair.toast.merged'), 'success');
+    },
+    onError: (error) => {
+      setShowMergePairConfirm(false);
+      const reason = error instanceof ApiError ? (error.detail?.reason as string | undefined) : undefined;
+      showToast(
+        reason ? t(`archiveMergePair.skipped.${reason}`, { defaultValue: t('archiveMergePair.toast.failed') }) : t('archiveMergePair.toast.failed'),
+        'error',
+      );
     },
   });
 
@@ -4054,6 +4088,18 @@ export function ArchivesPage() {
             <Star className="w-4 h-4" />
             Favorite
           </Button>
+          {canMergeDuplicates && selectedIds.size === 2 && (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowMergePairConfirm(true)}
+              disabled={!mergePair}
+              title={mergePair ? t('archiveMergePair.tooltip') : t('archiveMergePair.notAPair')}
+            >
+              <Combine className="w-4 h-4" />
+              {t('archiveMergePair.button')}
+            </Button>
+          )}
           <Button
             size="sm"
             className="bg-red-500 hover:bg-red-600"
@@ -4927,6 +4973,23 @@ export function ArchivesPage() {
             setShowBulkDeleteConfirm(false);
           }}
           onCancel={() => setShowBulkDeleteConfirm(false)}
+        />
+      )}
+
+      {/* Merge a print with no file into its uploaded file */}
+      {showMergePairConfirm && mergePair && (
+        <ConfirmModal
+          title={t('archiveMergePair.title')}
+          message={t('archiveMergePair.confirm', {
+            print: mergePair.merged.print_name || mergePair.merged.filename,
+            file: mergePair.survivor.print_name || mergePair.survivor.filename,
+          })}
+          confirmText={t('archiveMergePair.confirmCta')}
+          variant="warning"
+          isLoading={mergePairMutation.isPending}
+          loadingText={t('archiveMerge.merging')}
+          onConfirm={() => mergePairMutation.mutate([mergePair.survivor.id, mergePair.merged.id])}
+          onCancel={() => setShowMergePairConfirm(false)}
         />
       )}
 

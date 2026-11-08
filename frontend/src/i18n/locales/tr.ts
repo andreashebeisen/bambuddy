@@ -8276,6 +8276,24 @@ export default {
       failed: 'Arşivler birleştirilemedi.',
     },
   },
+  archiveMergePair: {
+    button: 'Birleştir',
+    tooltip: 'Dosyası olmayan bir baskıyı dosyasının arşiviyle birleştir',
+    notAPair: 'Dosyası olmayan bir baskı (ör. Bambu Cloud’dan gönderilen) ve 3MF’sini içeren bir arşiv seçin.',
+    title: 'Baskıyı dosyasıyla birleştir',
+    confirm: '"{{print}}" dosyaya sahip değil. Baskısı, fotoğrafları ve videosu "{{file}}" arşivine taşınır ve o kalır; "{{print}}" arşivlerden kaldırılır. Bu işlem buradan geri alınamaz.',
+    confirmCta: 'Evet, birleştir',
+    toast: {
+      merged: 'Baskı dosyasıyla birleştirildi.',
+      failed: 'Arşivler birleştirilemedi.',
+    },
+    skipped: {
+      busy: 'Kullanımda: yazdırılıyor, kuyrukta veya yeni yazdırıldı. Daha sonra tekrar deneyin.',
+      conflicting_files: 'Arşivlerde farklı kaynak veya tasarım dosyaları ya da videolar var. Önce birini elle tutun.',
+      failed: 'Birleştirme başarısız oldu.',
+      not_a_pair: 'Dosyası olmayan bir baskı ve dosyası olan bir arşiv seçin.',
+    },
+  },
   archivePurge: {
     headerButton: 'Eskileri temizle',
     headerTooltip: 'Eski arşivleri toplu olarak sil',

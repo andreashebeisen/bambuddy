@@ -8323,6 +8323,24 @@ export default {
       failed: 'Impossible de fusionner les archives.',
     },
   },
+  archiveMergePair: {
+    button: 'Fusionner',
+    tooltip: 'Fusionner une impression sans fichier avec l’archive de son fichier',
+    notAPair: 'Choisissez une impression sans fichier (p. ex. envoyée depuis Bambu Cloud) et une archive contenant son 3MF.',
+    title: 'Fusionner l’impression avec son fichier',
+    confirm: '« {{print}} » n’a pas de fichier. Son impression, ses photos et sa vidéo passent dans « {{file}} », qui reste ; « {{print}} » disparaît des archives. Cette action ne peut pas être annulée ici.',
+    confirmCta: 'Oui, fusionner',
+    toast: {
+      merged: 'L’impression a été fusionnée avec son fichier.',
+      failed: 'Impossible de fusionner les archives.',
+    },
+    skipped: {
+      busy: 'En cours d’utilisation : impression, file d’attente ou impression récente. Réessayez plus tard.',
+      conflicting_files: 'Les archives contiennent des fichiers source ou de conception, ou des vidéos, différents. Gardez-en un à la main d’abord.',
+      failed: 'La fusion a échoué.',
+      not_a_pair: 'Choisissez une impression sans fichier et une archive avec fichier.',
+    },
+  },
   archivePurge: {
     headerButton: 'Purger les anciens',
     headerTooltip: 'Suppression groupée d\'anciennes archives',
