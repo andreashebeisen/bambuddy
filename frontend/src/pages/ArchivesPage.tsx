@@ -244,6 +244,21 @@ function isOwnClick(e: React.MouseEvent<Element>): boolean {
   return !window.getSelection()?.toString();
 }
 
+// A Ctrl/Cmd- or Shift-click on an archive selects it instead of opening it,
+// which starts a selection without the Select button first. Once something is
+// selected, a plain click selects, as before.
+function isSelectClick(e: React.MouseEvent<Element>): boolean {
+  if (!(e.ctrlKey || e.metaKey || e.shiftKey)) return false;
+  const target = e.target as HTMLElement;
+  if (!e.currentTarget.contains(target)) return false;
+  return !target.closest('button, a, input, select, textarea, label, video, .fixed');
+}
+
+// Shift-click would also select the text between the last click and this one.
+function preventShiftSelect(e: React.MouseEvent<Element>): void {
+  if (e.shiftKey) e.preventDefault();
+}
+
 // formatDate imported from '../utils/date' - handles UTC conversion
 
 // Its videos: the archive's timelapse_path is its latest print's only, the
@@ -890,11 +905,14 @@ function ArchiveCard({
       className={`relative flex flex-col group cursor-pointer ${isSelected ? 'ring-2 ring-bambu-green' : ''}`}
       style={isHighlighted ? { outline: '4px solid #facc15', outlineOffset: '2px' } : undefined}
       onContextMenu={handleContextMenu}
+      onMouseDown={selectionMode ? undefined : preventShiftSelect}
       onClick={
         selectionMode
           ? () => onSelect(archive.id)
           : (e) => {
-              if (!contextMenu && isOwnClick(e)) navigate(`/archives/${archive.id}`);
+              if (contextMenu) return;
+              if (isSelectClick(e)) onSelect(archive.id);
+              else if (isOwnClick(e)) navigate(`/archives/${archive.id}`);
             }
       }
     >
@@ -2442,11 +2460,14 @@ function ArchiveListRow({
         }`}
         style={isHighlighted ? { outline: '4px solid #facc15', outlineOffset: '-4px' } : undefined}
         onContextMenu={handleContextMenu}
+        onMouseDown={selectionMode ? undefined : preventShiftSelect}
         onClick={
           selectionMode
             ? undefined
             : (e) => {
-                if (!contextMenu && isOwnClick(e)) navigate(`/archives/${archive.id}`);
+                if (contextMenu) return;
+                if (isSelectClick(e)) onSelect(archive.id);
+                else if (isOwnClick(e)) navigate(`/archives/${archive.id}`);
               }
         }
       >
