@@ -118,11 +118,19 @@ class StorageVerdict:
     unreachable verdict and only when the URL named a ``.3mf``. It is the
     caller's chance to check the claim cheaply before acting on ``reason`` --
     see :func:`ftp_probe_paths`.
+
+    ``probe_by_name`` is the same chance for the print's own name (its
+    subtask), on an unreachable verdict with a card in the printer. The name
+    the dispatch gave is not always the one the file sits under: a cloud print
+    names its download URL, and a print from the printer's own screen names
+    ``project_file.gcode.3mf``, while an X1C keeps the job on the card as
+    ``/cache/<print name>.gcode.3mf``.
     """
 
     reachable: bool
     reason: str | None = None
     probe_filename: str | None = None
+    probe_by_name: bool = False
 
 
 _REACHABLE = StorageVerdict(reachable=True)
@@ -182,8 +190,26 @@ def probe_filename_from_url(project_url: str | None) -> str | None:
     _scheme, separator, path = project_url.partition("://")
     if not separator:
         return None
-    name = path.rpartition("/")[2].strip()
-    if not name or len(name) > _MAX_PROBE_FILENAME_LENGTH:
+    return safe_probe_name(path.rpartition("/")[2])
+
+
+def _names_a_3mf(project_url: str | None) -> bool:
+    """Whether *project_url* points at a 3MF, its query string aside (a cloud
+    print's download URL carries one). A bare gcode job has no 3MF to find
+    under any name."""
+    if not isinstance(project_url, str):
+        return False
+    path = project_url.partition("?")[0].partition("#")[0]
+    return path.lower().endswith(".3mf")
+
+
+def safe_probe_name(name: str | None) -> str | None:
+    """*name* if it is a ``.3mf`` name safe to probe for and to write to a
+    local temp path, else None (see :func:`probe_filename_from_url`)."""
+    if not isinstance(name, str):
+        return None
+    name = name.strip()
+    if not name or len(name) > _MAX_PROBE_FILENAME_LENGTH or "/" in name:
         return None
     # A leading dot is either a traversal segment or a hidden file; neither is
     # a sliced upload, and both would put an odd path on the wire. A backslash
@@ -196,6 +222,20 @@ def probe_filename_from_url(project_url: str | None) -> str | None:
         return None
     if not name.lower().endswith(".3mf"):
         return None
+    return name
+
+
+# How the printer spells on its card the characters a FAT card cannot hold:
+# an X1C wrote the cloud job "装饰套装:你好,秋天(Q_Craft)" as
+# "装饰套装3a你好,秋天(Q_Craft).gcode.3mf", the ":" as its hex code. Only
+# ":" has been seen; the others stay as they are until one is.
+_CARD_SPELLINGS = {":": "3a"}
+
+
+def card_spelling(name: str) -> str:
+    """*name* as the printer writes it to its card."""
+    for character, spelling in _CARD_SPELLINGS.items():
+        name = name.replace(character, spelling)
     return name
 
 
@@ -277,10 +317,12 @@ def _verdict(project_url: str | None, state: object | None) -> StorageVerdict:
         # and #2780's H2C sat that way for three weeks -- one connection per
         # print start is small, but it is not worth spending to be told what
         # the printer already said.
+        card = external_storage_present(state)
         return StorageVerdict(
             reachable=False,
             reason=_internal_reason(project_url),
-            probe_filename=probe_filename_from_url(project_url) if external_storage_present(state) else None,
+            probe_filename=probe_filename_from_url(project_url) if card else None,
+            probe_by_name=card and _names_a_3mf(project_url),
         )
     if external is True:
         # It said external storage, so sweep even if the card flags disagree.

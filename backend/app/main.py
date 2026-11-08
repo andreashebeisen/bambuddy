@@ -148,9 +148,11 @@ from backend.app.services.print_scheduler import scheduler as print_scheduler
 from backend.app.services.print_storage import (
     REASON_FTP_TRANSFER_FAILED,
     REASON_FTPS_COOLOFF,
+    card_spelling,
     external_storage_present,
     ftp_probe_paths,
     print_file_reachable_over_ftp,
+    safe_probe_name,
 )
 from backend.app.services.printer_manager import (
     init_printer_connections,
@@ -5823,6 +5825,12 @@ async def on_print_start(printer_id: int, data: dict):
                 space_variants.append(name.replace(" ", "_"))
         possible_names.extend(space_variants)
 
+        # And as the printer spells the name on its card: an X1C wrote the
+        # cloud job "装饰套装:你好,秋天(Q_Craft)" as
+        # "/cache/装饰套装3a你好,秋天(Q_Craft).gcode.3mf", a ":" being no
+        # character a FAT card can hold.
+        possible_names.extend(card_spelling(name) for name in possible_names if card_spelling(name) != name)
+
         # Remove duplicates while preserving order
         seen = set()
         possible_names = [x for x in possible_names if not (x in seen or seen.add(x))]
@@ -5912,7 +5920,24 @@ async def on_print_start(printer_id: int, data: dict):
         # guessing: the dispatch named the exact file, which is one connection
         # walking five paths rather than the sweep's ~110. Only when the probe
         # comes back empty does the verdict's reason stand.
-        if not storage.reachable and not downloaded_filename and storage.probe_filename:
+        # The name the dispatch gave first, then the print's own: a cloud print
+        # names its download URL and a print from the printer's screen names
+        # project_file.gcode.3mf, while an X1C keeps either job on the card as
+        # /cache/<print name>.gcode.3mf. Still one connection per name, against
+        # the sweep's ~110 (#2780).
+        probe_names = [storage.probe_filename] if storage.probe_filename else []
+        if storage.probe_by_name:
+            for name in possible_names:
+                # Not "plate_1.gcode.3mf": every sliced job has one, so it
+                # names no print, and on a card it may be another's.
+                if (
+                    name.endswith(".gcode.3mf")
+                    and not _GENERIC_PLATE_NAME.match(name)
+                    and safe_probe_name(name) == name
+                    and name not in probe_names
+                ):
+                    probe_names.append(name)
+        if not storage.reachable and not downloaded_filename and probe_names:
             if ftps_handshake_blocked(printer.ip_address):
                 # Deliberately NOT recorded as a cool-off give-up. This branch
                 # only runs on an unreachable verdict, and that verdict is the
@@ -5922,39 +5947,41 @@ async def on_print_start(printer_id: int, data: dict):
                 # the sweep #2780 removed (#2957).
                 logger.debug(
                     "Not probing for %s on printer %s: its file service is not answering over TLS",
-                    storage.probe_filename,
+                    probe_names,
                     printer_id,
                 )
             else:
-                probe_path = app_settings.archive_dir / "temp" / storage.probe_filename
-                probe_path.parent.mkdir(parents=True, exist_ok=True)
-                try:
-                    probe_hit = await download_file_try_paths_async(
-                        printer.ip_address,
-                        printer.access_code,
-                        ftp_probe_paths(storage.probe_filename),
-                        probe_path,
-                        socket_timeout=ftp_timeout,
-                        printer_model=printer.model,
-                    )
-                except Exception as e:
-                    logger.debug("3MF probe for %s failed: %s", storage.probe_filename, e)
-                    probe_hit = False
-                if probe_hit:
-                    downloaded_filename = storage.probe_filename
-                    temp_path = probe_path
-                    cache_3mf_download(printer_id, downloaded_filename, probe_path)
-                    # Naming the path, not just the file: a printer that keeps
-                    # uploads around for weeks can serve a same-named copy of an
-                    # earlier slice, and without the directory in the log that
-                    # mismatch is invisible rather than merely rare (#1820).
-                    logger.info(
-                        "Found %s at %s over FTPS for printer %s even though the printer reported %s",
-                        downloaded_filename,
-                        probe_hit,
-                        printer_id,
-                        storage.reason,
-                    )
+                for probe_name in probe_names:
+                    probe_path = app_settings.archive_dir / "temp" / probe_name
+                    probe_path.parent.mkdir(parents=True, exist_ok=True)
+                    try:
+                        probe_hit = await download_file_try_paths_async(
+                            printer.ip_address,
+                            printer.access_code,
+                            ftp_probe_paths(probe_name),
+                            probe_path,
+                            socket_timeout=ftp_timeout,
+                            printer_model=printer.model,
+                        )
+                    except Exception as e:
+                        logger.debug("3MF probe for %s failed: %s", probe_name, e)
+                        probe_hit = False
+                    if probe_hit:
+                        downloaded_filename = probe_name
+                        temp_path = probe_path
+                        cache_3mf_download(printer_id, downloaded_filename, probe_path)
+                        # Naming the path, not just the file: a printer that keeps
+                        # uploads around for weeks can serve a same-named copy of an
+                        # earlier slice, and without the directory in the log that
+                        # mismatch is invisible rather than merely rare (#1820).
+                        logger.info(
+                            "Found %s at %s over FTPS for printer %s even though the printer reported %s",
+                            downloaded_filename,
+                            probe_hit,
+                            printer_id,
+                            storage.reason,
+                        )
+                        break
 
         if not storage.reachable and not downloaded_filename:
             # Same opening words whether or not a probe ran, because that is
@@ -5965,7 +5992,7 @@ async def on_print_start(printer_id: int, data: dict):
                 printer_id,
                 storage.reason,
                 "no copy of it on external storage either"
-                if storage.probe_filename
+                if probe_names
                 else "the print file is not on storage Bambuddy can read over FTPS, so no path would find it",
             )
 
@@ -8862,6 +8889,10 @@ def _subtask_name_from_filename(filename: str) -> str:
         if name.lower().endswith(suffix):
             name = name[: -len(suffix)]
     return name
+
+
+# A sliced job's plate file name ("plate_1.gcode.3mf"), which every print has.
+_GENERIC_PLATE_NAME = re.compile(r"^plate_?\d+\.gcode\.3mf$", re.IGNORECASE)
 
 
 def _subtask_is_the_file(subtask_name: str, filename: str) -> bool:
