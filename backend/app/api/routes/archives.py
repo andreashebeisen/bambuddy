@@ -479,6 +479,14 @@ async def _load_run_aggregates(
     for archive_id, path in videos.all():
         if archive_id is not None:
             aggregates.setdefault(archive_id, {}).setdefault("run_timelapses", set()).add(path)
+    # Whether spool usage is recorded for it: its spools were charged, at a
+    # print's end or by hand (services/spool_charge).
+    charged = await db.scalars(
+        select(SpoolUsageHistory.archive_id).where(SpoolUsageHistory.archive_id.in_(archive_ids)).distinct()
+    )
+    for archive_id in charged.all():
+        if archive_id is not None:
+            aggregates.setdefault(archive_id, {})["spools_charged"] = True
     return aggregates
 
 
@@ -637,6 +645,7 @@ def archive_to_response(
         data["successful_run_count"] = run_aggregate.get("successful_run_count", 0)
         data["failed_run_count"] = run_aggregate.get("failed_run_count", 0)
         data["latest_run_id"] = run_aggregate.get("latest_run_id")
+        data["spools_charged"] = bool(run_aggregate.get("spools_charged"))
 
     return data
 
@@ -2340,7 +2349,15 @@ async def list_archive_runs(
     # stays a list, also when empty: null is a print logged before prints kept
     # their own, which shares the archive's.
     archive_photos = set(archive.photos or [])
+    # Which prints had their spools charged: the usage records each holds,
+    # as repricing assigns them to prints.
+    from backend.app.services.usage_repricing import _run_of
+
+    usage = (await db.scalars(select(SpoolUsageHistory).where(SpoolUsageHistory.archive_id == archive_id))).all()
+    all_runs = (await db.scalars(select(PrintLogEntry).where(PrintLogEntry.archive_id == archive_id))).all()
+    charged_runs = {owner.id for row in usage if (owner := _run_of(row, list(all_runs))) is not None}
     for item in items:
+        item.spools_charged = item.id in charged_runs
         if item.photos is not None:
             item.photos = [p for p in item.photos if p in archive_photos]
         # What the slicer gave the plate it printed (#3375); the file's
@@ -2349,6 +2366,104 @@ async def list_archive_runs(
         if estimate is not None and (estimate.per_plate or len(items) == 1):
             item.estimate_seconds, item.estimate_grams = estimate.seconds, estimate.grams
     return PrintLogResponse(items=items, total=len(items))
+
+
+class SpoolChargeLine(BaseModel):
+    spool_id: int
+    grams: float = Field(gt=0, le=100000)
+
+
+class SpoolChargeRequest(BaseModel):
+    lines: list[SpoolChargeLine] = Field(min_length=1, max_length=32)
+
+
+_SPOOL_CHARGE_STATUS = {
+    "not_found": 404,
+    "no_file": 409,
+    "not_ended": 409,
+    "already_charged": 409,
+    "spoolman": 409,
+    "nothing": 400,
+    "spool_not_found": 400,
+}
+
+
+async def _spool_charge_run_visible(db, archive_id: int, run_id: int, auth_result, printer_scope) -> None:
+    from backend.app.models.print_log import PrintLogEntry
+
+    user, can_update_all = auth_result
+    await _ensure_archive_visible(await db.get(PrintArchive, archive_id), user, can_update_all, printer_scope)
+    run = await db.get(PrintLogEntry, run_id)
+    if run is None or run.archive_id != archive_id:
+        raise HTTPException(404, "Print not found")
+    printer_scope.ensure(run.printer_id)
+
+
+@router.get("/{archive_id}/runs/{run_id}/spool-charge")
+async def get_run_spool_charge(
+    archive_id: int,
+    run_id: int,
+    db: AsyncSession = Depends(get_db, scope="function"),
+    auth_result: tuple[User | ApiKeyActor | None, bool] = Depends(
+        require_ownership_permission(Permission.ARCHIVES_UPDATE_ALL, Permission.ARCHIVES_UPDATE_OWN)
+    ),
+    _: User | None = RequirePermissionIfAuthEnabled(Permission.INVENTORY_UPDATE),
+    printer_scope: PrinterScope = RequestPrinterScope,
+):
+    """The print's filaments from its file, with a spool suggested for each,
+    for charging its spools by hand (a cloud print whose 3MF came later)."""
+    from backend.app.services.spool_charge import ChargeError, propose
+
+    await _spool_charge_run_visible(db, archive_id, run_id, auth_result, printer_scope)
+    try:
+        proposal = await propose(db, archive_id, run_id)
+    except ChargeError as e:
+        raise HTTPException(_SPOOL_CHARGE_STATUS.get(e.code, 400), detail={"code": e.code}) from None
+    run = proposal.run
+    return {
+        "run_id": run.id,
+        "status": run.status,
+        "already_charged": proposal.already_charged,
+        "filaments": [
+            {
+                "slot_id": f.slot_id,
+                "material": f.material,
+                "color": f.color,
+                "grams": f.grams,
+                "ams_id": f.tray[0] if f.tray else None,
+                "tray_id": f.tray[1] if f.tray else None,
+                "spool_id": f.spool_id,
+                "match": f.match,
+            }
+            for f in proposal.filaments
+        ],
+    }
+
+
+@router.post("/{archive_id}/runs/{run_id}/spool-charge")
+async def charge_run_spools(
+    archive_id: int,
+    run_id: int,
+    body: SpoolChargeRequest,
+    db: AsyncSession = Depends(get_db, scope="function"),
+    auth_result: tuple[User | ApiKeyActor | None, bool] = Depends(
+        require_ownership_permission(Permission.ARCHIVES_UPDATE_ALL, Permission.ARCHIVES_UPDATE_OWN)
+    ),
+    _: User | None = RequirePermissionIfAuthEnabled(Permission.INVENTORY_UPDATE),
+    printer_scope: PrinterScope = RequestPrinterScope,
+):
+    """Charge the print's spools the grams confirmed (see the GET). Once per
+    print: 409 ``already_charged`` when it has usage recorded."""
+    from backend.app.core.websocket import ws_manager
+    from backend.app.services.spool_charge import ChargeError, charge
+
+    await _spool_charge_run_visible(db, archive_id, run_id, auth_result, printer_scope)
+    try:
+        results = await charge(db, archive_id, run_id, [(line.spool_id, line.grams) for line in body.lines])
+    except ChargeError as e:
+        raise HTTPException(_SPOOL_CHARGE_STATUS.get(e.code, 400), detail={"code": e.code}) from None
+    await ws_manager.send_archive_updated({"id": archive_id})
+    return {"charged": results}
 
 
 @router.get("/{archive_id}/runs/{run_id}/timelapse")

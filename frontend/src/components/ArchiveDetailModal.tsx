@@ -8,6 +8,7 @@ import {
   ChevronDown,
   ChevronRight,
   Cog,
+  Cylinder,
   Download,
   ExternalLink,
   Film,
@@ -34,6 +35,7 @@ import { EditArchiveModal } from './EditArchiveModal';
 import { PhotoGalleryModal } from './PhotoGalleryModal';
 import { PrintModal } from './PrintModal';
 import { SliceModal } from './SliceModal';
+import { SpoolChargeDialog } from './SpoolChargeDialog';
 import { ThumbnailHoverPreview } from './ThumbnailHoverPreview';
 import { TimelapseViewer } from './TimelapseViewer';
 import { useAuth } from '../contexts/AuthContext';
@@ -110,6 +112,7 @@ export function ArchiveDetailModal({ archiveId, onClose }: { archiveId: number; 
   const [showDelete, setShowDelete] = useState(false);
   const [deletePurgeStats, setDeletePurgeStats] = useState(false);
   const [confirmRun, setConfirmRun] = useState<number | null>(null);
+  const [chargeRun, setChargeRun] = useState<number | null>(null);
   const [media, setMedia] = useState<Media | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -589,6 +592,9 @@ export function ArchiveDetailModal({ archiveId, onClose }: { archiveId: number; 
                   printBlocked={printBlocked}
                   media={mediaOf(run)}
                   onConfirm={() => setConfirmRun(run.id)}
+                  // Its spools by hand, from the file: a cloud print whose 3MF came later.
+                  canChargeSpools={!!archive.file_path && canUpdate && hasPermission('inventory:update')}
+                  onChargeSpools={() => setChargeRun(run.id)}
                   onReprint={() => setReprintPlate(run.plate_id ?? archive.plate_id)}
                   onMedia={setMedia}
                 />
@@ -610,6 +616,9 @@ export function ArchiveDetailModal({ archiveId, onClose }: { archiveId: number; 
       )}
       {showSlice && (
         <SliceModal source={{ kind: 'archive', id: archive.id, filename: name || 'model' }} onClose={() => setShowSlice(false)} />
+      )}
+      {chargeRun != null && (
+        <SpoolChargeDialog archiveId={archive.id} runId={chargeRun} onClose={() => setChargeRun(null)} />
       )}
       {confirmRun != null && (
         <ConfirmOutcomeDialog
@@ -880,6 +889,8 @@ function RunRow({
   onConfirm,
   onReprint,
   onMedia,
+  canChargeSpools = false,
+  onChargeSpools,
 }: {
   run: PrintLogEntry;
   archiveId: number;
@@ -898,6 +909,8 @@ function RunRow({
   onConfirm: () => void;
   onReprint: () => void;
   onMedia: (media: Media) => void;
+  canChargeSpools?: boolean;
+  onChargeSpools?: () => void;
 }) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -1005,6 +1018,16 @@ function RunRow({
             >
               <ThumbsDown className="w-3 h-3" />
               {t('archives.card.rejected')}
+            </span>
+          )}
+          {run.spools_charged && (
+            <span
+              className="text-xs px-1.5 py-0.5 rounded bg-bambu-green/20 text-bambu-green flex items-center gap-1"
+              title={t('spoolCharge.chargedTitle')}
+              data-testid={`run-${run.id}-spools-charged`}
+            >
+              <Cylinder className="w-3 h-3" />
+              {t('spoolCharge.charged')}
             </span>
           )}
           {pending && (
@@ -1148,6 +1171,12 @@ function RunRow({
               >
                 <ThumbsUp className="w-3.5 h-3.5" />
                 {run.user_verdict ? t('archivePage.changeOutcome') : t('archivePage.setOutcome')}
+              </Button>
+            )}
+            {canChargeSpools && run.status !== 'printing' && !run.spools_charged && (
+              <Button size="sm" variant="secondary" onClick={onChargeSpools}>
+                <Cylinder className="w-3.5 h-3.5" />
+                {t('spoolCharge.button')}
               </Button>
             )}
             {!editingNote && canEditNote && (

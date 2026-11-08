@@ -927,6 +927,8 @@ export interface Archive {
   // The latest print of the archive (among those the caller may see), whose
   // figures the per-print fields show (archive redesign).
   latest_run_id?: number | null;
+  /** Whether spool usage is recorded for its prints (its spools charged). */
+  spools_charged?: boolean;
   // How many videos its prints have; timelapse_path is the latest print's only.
   timelapse_count?: number;
   quantity: number;
@@ -995,6 +997,8 @@ export interface PrintLogEntry {
   // The slicer's estimate for the plate it printed; in an archive's runs list.
   estimate_seconds?: number | null;
   estimate_grams?: number | null;
+  /** Whether spool usage is recorded for this print; set by the archive's runs listing. */
+  spools_charged?: boolean | null;
   thumbnail_path: string | null;
   created_by_id: number | null;
   created_by_username: string | null;
@@ -5781,6 +5785,15 @@ export const api = {
   getArchive: (id: number, runId?: number | null) =>
     request<Archive>(`/archives/${id}${runId != null ? `?run_id=${runId}` : ''}`),
   getArchiveRuns: (id: number) => request<PrintLogResponse>(`/archives/${id}/runs`),
+  /** A print's filaments from its file, with a spool suggested for each,
+   *  for charging its spools by hand (a cloud print whose 3MF came later). */
+  getRunSpoolCharge: (archiveId: number, runId: number) =>
+    request<RunSpoolCharge>(`/archives/${archiveId}/runs/${runId}/spool-charge`),
+  chargeRunSpools: (archiveId: number, runId: number, lines: { spool_id: number; grams: number }[]) =>
+    request<{ charged: { spool_id: number; weight_used: number; cost: number | null }[] }>(
+      `/archives/${archiveId}/runs/${runId}/spool-charge`,
+      { method: 'POST', body: JSON.stringify({ lines }) },
+    ),
   // The prints of the archives the caller sees that ended between two days
   // (archive redesign P4: the calendar), in id order.
   getArchivePrints: (params: { dateFrom: string; dateTo: string; printerId?: number; limit?: number; offset?: number }) => {
@@ -8997,6 +9010,26 @@ export interface ArchivePurgePreview {
   total_bytes: number;
   sample_filenames: string[];
   older_than_days: number;
+}
+
+export interface RunSpoolChargeFilament {
+  slot_id: number;
+  material: string | null;
+  color: string | null;
+  grams: number;
+  /** The AMS slot the printer used for it, when it reported one. */
+  ams_id: number | null;
+  tray_id: number | null;
+  spool_id: number | null;
+  /** How the spool was suggested: assigned to that slot, or nearest colour. */
+  match: 'slot' | 'color' | null;
+}
+
+export interface RunSpoolCharge {
+  run_id: number;
+  status: string;
+  already_charged: boolean;
+  filaments: RunSpoolChargeFilament[];
 }
 
 export interface ArchiveMergeMember {

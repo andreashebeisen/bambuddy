@@ -18,6 +18,7 @@ import {
   ExternalLink,
   CheckSquare,
   Combine,
+  Cylinder,
   Square,
   X,
   Globe,
@@ -1275,6 +1276,16 @@ function ArchiveCard({
             >
               {t('archives.card.runsBadge', { count: archive.run_count })}
             </button>
+          )}
+          {archive.spools_charged && (
+            <span
+              className="text-[10px] px-1.5 py-0.5 rounded font-medium bg-bambu-green/20 text-bambu-green flex items-center gap-1"
+              title={t('spoolCharge.chargedTitle')}
+              data-testid="spools-charged-badge"
+            >
+              <Cylinder className="w-3 h-3" />
+              {t('spoolCharge.charged')}
+            </span>
           )}
         </div>
 

@@ -46,6 +46,9 @@ class PrintLogEntrySchema(BaseModel):
     # archive's runs list (GET /archives/{id}/runs).
     estimate_seconds: int | None = None
     estimate_grams: float | None = None
+    # Whether spool usage is recorded for this print (its spools charged).
+    # Set by the archive's runs listing only; None elsewhere.
+    spools_charged: bool | None = None
     thumbnail_path: str | None = None
     created_by_id: int | None = None
     created_by_username: str | None = None

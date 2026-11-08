@@ -157,6 +157,8 @@ class ArchiveResponse(BaseModel):
     # The latest print of the archive (by start, among those the caller may
     # see): the run the per-print fields are taken from.
     latest_run_id: int | None = None
+    # Whether spool usage is recorded for its prints (its spools charged).
+    spools_charged: bool = False
     # How many videos its prints have: the archive's timelapse_path is only
     # its latest print's.
     timelapse_count: int = 0
