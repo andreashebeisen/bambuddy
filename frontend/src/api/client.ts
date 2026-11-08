@@ -5883,6 +5883,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ survivor_ids: survivorIds }),
     }),
+  /** The sliced files on the printers' storage that no archive holds yet. */
+  scanPrinterImport: (printerId?: number) =>
+    request<PrinterImportScan>(`/archives/printer-import/scan${printerId != null ? `?printer_id=${printerId}` : ''}`),
+  /** Download one of them and archive it; `duplicate` when an archive already holds its content. */
+  importPrinterFile: (printerId: number, path: string) =>
+    request<{ status: 'imported' | 'duplicate'; archive_id: number }>('/archives/printer-import', {
+      method: 'POST',
+      body: JSON.stringify({ printer_id: printerId, path }),
+    }),
   /** Merge a print with no file (a cloud print) into the archive of its
    *  file, uploaded since: the one with the file stays. 409 `{reason}` when
    *  they are not such a pair or one of them is at work. */
@@ -9010,6 +9019,25 @@ export interface ArchivePurgePreview {
   total_bytes: number;
   sample_filenames: string[];
   older_than_days: number;
+}
+
+export interface PrinterImportFile {
+  path: string;
+  name: string;
+  size: number | null;
+  mtime: string | null;
+}
+
+export interface PrinterImportScan {
+  printers: {
+    printer_id: number;
+    name: string;
+    /** False when the printer did not answer. */
+    available: boolean;
+    /** Its sliced files that an archive already holds. */
+    already_imported: number;
+    files: PrinterImportFile[];
+  }[];
 }
 
 export interface RunSpoolChargeFilament {

@@ -888,6 +888,75 @@ async def merge_archive_pair(
     return {"survivor_id": survivor_id, "merged_id": merged_id}
 
 
+@router.get("/printer-import/scan")
+async def scan_printer_files_for_import(
+    printer_id: int | None = None,
+    current_user: User | None = RequirePermissionIfAuthEnabled(Permission.ARCHIVES_CREATE, Permission.PRINTERS_FILES),
+    printer_scope: PrinterScope = RequestPrinterScope,
+):
+    """The sliced files (.gcode.3mf) on the printers' storage that no archive
+    holds yet: what "Import from printer" offers, by printer. One printer with
+    ``printer_id``, else every active printer of the caller's."""
+    from backend.app.core import database
+    from backend.app.models.printer import Printer
+    from backend.app.services.printer_import import scan
+
+    if printer_id is not None:
+        printer_scope.ensure(printer_id)
+    async with database.async_session() as db:
+        query = select(Printer).where(Printer.is_active.is_(True)).order_by(Printer.name)
+        if printer_id is not None:
+            query = query.where(Printer.id == printer_id)
+        printers = [p for p in (await db.scalars(query)).all() if printer_scope.allows(p.id)]
+    results = await scan(printers)
+    return {
+        "printers": [
+            {
+                "printer_id": r.printer_id,
+                "name": r.name,
+                "available": r.available,
+                "already_imported": r.already_imported,
+                "files": r.files,
+            }
+            for r in results
+        ]
+    }
+
+
+class PrinterImportRequest(BaseModel):
+    printer_id: int
+    path: str = Field(min_length=1, max_length=1024)
+
+
+@router.post("/printer-import")
+async def import_printer_file(
+    body: PrinterImportRequest,
+    current_user: User | None = RequirePermissionIfAuthEnabled(Permission.ARCHIVES_CREATE, Permission.PRINTERS_FILES),
+    printer_scope: PrinterScope = RequestPrinterScope,
+):
+    """Download one file the scan offered and archive it, as an upload. A
+    file whose content an archive already holds is not archived again:
+    ``status`` is then ``duplicate`` and ``archive_id`` that archive."""
+    from backend.app.core import database
+    from backend.app.core.websocket import ws_manager
+    from backend.app.models.printer import Printer
+    from backend.app.services.printer_import import IMPORTED, ImportError_, import_file
+
+    printer_scope.ensure(body.printer_id)
+    async with database.async_session() as db:
+        printer = await db.get(Printer, body.printer_id)
+    if printer is None:
+        raise HTTPException(404, "Printer not found")
+    try:
+        status, archive_id = await import_file(printer, body.path, current_user.id if current_user else None)
+    except ImportError_ as e:
+        code = 400 if e.code == "not_a_print_file" else 502
+        raise HTTPException(code, detail={"code": e.code}) from None
+    if status == IMPORTED:
+        await ws_manager.send_archive_created({"id": archive_id, "printer_id": printer.id})
+    return {"status": status, "archive_id": archive_id}
+
+
 @router.get("/last-per-printer", response_model=list[ArchiveResponse])
 async def list_last_archive_per_printer(
     db: AsyncSession = Depends(get_db, scope="function"),

@@ -19,6 +19,7 @@ import {
   CheckSquare,
   Combine,
   Cylinder,
+  HardDriveDownload,
   Square,
   X,
   Globe,
@@ -88,6 +89,7 @@ import { ConfirmOutcomeDialog } from '../components/ConfirmOutcomeDialog';
 import { UploadModal } from '../components/UploadModal';
 import { PurgeArchivesModal } from '../components/PurgeArchivesModal';
 import { MergeDuplicatesModal } from '../components/MergeDuplicatesModal';
+import { PrinterImportModal } from '../components/PrinterImportModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { EditArchiveModal, FAILURE_REASON_KEYS } from '../components/EditArchiveModal';
 import { PrintLogModal } from '../components/PrintLogModal';
@@ -3197,6 +3199,7 @@ export function ArchivesPage() {
   const [showPurgeModal, setShowPurgeModal] = useState(false);
   const [showMergeModal, setShowMergeModal] = useState(false);
   const [showMergePairConfirm, setShowMergePairConfirm] = useState(false);
+  const [showPrinterImport, setShowPrinterImport] = useState(false);
   // What the merge API asks for: it changes and removes whole archives.
   const canMergeDuplicates = hasPermission('archives:update_all') && hasPermission('archives:delete_all');
   // Offered while archives of one file exist more than once: after an
@@ -4349,6 +4352,12 @@ export function ArchivesPage() {
             <Upload className="w-4 h-4" />
             Upload 3MF
           </Button>
+          {hasPermission('archives:create') && hasPermission('printers:files') && (
+            <Button variant="secondary" onClick={() => setShowPrinterImport(true)} title={t('printerImport.tooltip')}>
+              <HardDriveDownload className="w-4 h-4" />
+              {t('printerImport.button')}
+            </Button>
+          )}
           {canMergeDuplicates && (
             <Button
               variant="secondary"
@@ -4984,6 +4993,8 @@ export function ArchivesPage() {
           initialFiles={uploadFiles}
         />
       )}
+
+      {showPrinterImport && <PrinterImportModal onClose={() => setShowPrinterImport(false)} />}
 
       {/* Merge duplicate archives (archive redesign P2) */}
       {showMergeModal && <MergeDuplicatesModal onClose={() => setShowMergeModal(false)} />}
